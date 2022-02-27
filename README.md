@@ -1,1 +1,3 @@
-This repo contains implementations of various flavours of neural networks written from scratch in C allowing maximum customizability.
+This repo contains implementations of various flavours of neural networks written from scratch in C allowing maximum customizability.  
+The file feedforward.c contains a general implementation of a fully-connected feedforward neural network, and it performs both training and then predictions of test data, which is then output to a file. The estimated parameters are also saved in a separate file.  
+The train and test data should be in the same directory of the executable. The MNIST dataset in CSV format can be downloaded [here](https://drive.google.com/file/d/1cANqXh282D8pDhnbBXysiaRqhmR5y5UW/view).
