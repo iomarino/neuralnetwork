@@ -4,25 +4,20 @@
 #include <math.h>
 #include <time.h>
 
-void read_csv(int row, int col, char *filename, long double **data){
+void read_csv(int row, int col, char *filename, long double **data) {
 	FILE *file;
 	file = fopen(filename, "r");
-
 	int i = 0;
-    char line[4098];
-	while (fgets(line, 4098, file) && (i < row))
-    {
-    	// long double row[ssParams->nreal + 1];
-        char* tmp = strdup(line);
-
-	    int j = 0;
-	    const char* tok;
-	    for (tok = strtok(line, ","); tok && *tok; j++, tok = strtok(NULL, ","))
-	    {
-	        data[i][j] = atof(tok);
-	    }
-        free(tmp);
-        i++;
+  char line[4098];
+	while (fgets(line, 4098, file) && (i<row)) {
+		char* tmp = strdup(line);
+		int j = 0;
+		const char* tok;
+		for (tok = strtok(line, ","); tok && *tok; j++, tok = strtok(NULL, ",")) {
+			data[i][j] = atof(tok);
+		}
+		free(tmp);
+		i++;
     }
 }
 void sample(size_t* v, size_t n, size_t r) {
@@ -30,6 +25,11 @@ void sample(size_t* v, size_t n, size_t r) {
     size_t a = (int)((long double)rand()/RAND_MAX*n);
     v[i] = a;
   }
+}
+long double stdnorm() {
+	long double u1 = (long double)rand()/RAND_MAX;
+	long double u2 = (long double)rand()/RAND_MAX;
+	return sqrt(-2*log(u1))*cos(2*M_PI*u2);
 }
 long double sig(long double z) {
 	return 1/(1+exp(-z));
@@ -53,7 +53,7 @@ long double datan(long double z) {
   return 1/(1+z*z);
 }
 long double dtanh(long double z) {
-  return 4/pow(exp(-z)+exp(z),2);
+  return 1-tanh(z)*tanh(z);
 }
 // hidden layers activation function
 long double g(long double z) { return relu(z); }
@@ -63,9 +63,11 @@ long double h(double z) { return sig(z); }
 long double dh(double z) { return dsig(z); }
 
 int main() {
+	srand(time(0));
   int i, j, k, l, e;
-  const int L = 8; // # of layers
-  const int K[L] = {784, 512, 256, 128, 64, 32, 16, 10}; // # of neurons per layer
+  const int L = 6; // # of layers
+  const int K[L] = {784, 256, 128, 64, 32, 10}; // # of neurons per layer
+	// tensors declaration
   long double ** z = (long double **)malloc(L*sizeof(long double**));
   for (l=1; l<L; l++) {
     z[l] = (long double *) malloc(K[l]*sizeof(long double));
@@ -100,16 +102,7 @@ int main() {
       dCw[l][k] = (long double *)malloc(K[l-1]*sizeof(long double));
     }
   }
-  // generate random weights and biases
-  srand(time(0));
-  for(l=1; l<L; l++) {
-    for(k=0; k<K[l]; k++) {
-      b[l][k] = 2*(long double)rand()/RAND_MAX-1;
-      for(j=0; j<K[l-1]; j++) {
-        w[l][k][j] = (2*(long double)rand()/RAND_MAX-1)/sqrt(K[l-1]);
-      }
-    }
-  }
+
   // source train inputs and outputs
   unsigned int N = 60000; // dimension of train set
   long double ** x = (long double **)malloc(N*sizeof(long double**));
@@ -126,7 +119,7 @@ int main() {
 	for (i=0; i<row; i++){
 		data[i] = (long double *)malloc(col*sizeof(long double));
 	}
-	read_csv(row, col, "mnist_train.csv", data);
+	read_csv(row, col, "traindata.csv", data);
   for(i=0; i<N; i++) {
     for(j=0; j<K[L-1]; j++) {
       y[i][j] = 0;
@@ -137,10 +130,39 @@ int main() {
       x[i][j] = data[i][j+1];
     }
   }
-	const long double rho = 0.025;
-	const long double lambda = 8;
-  const unsigned int sgd_size = 30;
-	const unsigned int steps = 20000;
+	// source test inputs
+  unsigned int N_test = 10000; // dimension of test set
+  long double ** x_test = (long double **)malloc(N*sizeof(long double**));
+  for (i=0; i<N_test; i++) {
+    x_test[i] = (long double *)malloc(K[0]*sizeof(long double));
+  }
+	row = N_test;
+	col = K[0]+1;
+  data = realloc(data, row*sizeof(long double *));
+	for (i=0; i<row; i++){
+		data[i] = (long double *)malloc(col*sizeof(long double));
+	}
+	read_csv(row, col, "testdata.csv", data);
+  for(i=0; i<N_test; i++) {
+    for(j=0; j<K[0]; j++) {
+      x_test[i][j] = data[i][j+1];
+    }
+  }
+	// training
+	// generate random weights and biases
+  for(l=1; l<L; l++) {
+    for(k=0; k<K[l]; k++) {
+      b[l][k] = 2*(long double)rand()/RAND_MAX-1;
+      for(j=0; j<K[l-1]; j++) {
+        w[l][k][j] = (2*(long double)rand()/RAND_MAX-1)/sqrt(K[l-1]);
+      }
+    }
+  }
+	// hyperparameters
+	long double eta = 0.008;
+	long double lambda = 6;
+  unsigned int sgd_size = 30;
+	unsigned int steps = 10000;
   size_t index[sgd_size];
   // train
   for(e=0; e<steps; e++) {
@@ -207,39 +229,19 @@ int main() {
     // gradient descent
     for(l=1; l<L; l++) {
       for(k=0; k<K[l]; k++) {
-        b[l][k] += -rho*dCb[l][k]/sgd_size;
+        b[l][k] += -eta*dCb[l][k]/sgd_size;
         for(j=0; j<K[l-1]; j++) {
-          w[l][k][j] += -rho*dCw[l][k][j]/sgd_size;
+          w[l][k][j] += -eta*dCw[l][k][j]/sgd_size;
         }
       }
     }
   }
-
   // testing
-  N = 10000; // dimension of test set
-  free(y);
-  x = realloc(x, N*sizeof(long double**));
-  for (i=0; i<N; i++) {
-    x[i] = (long double *)malloc(K[0]*sizeof(long double));
-  }
-  // source test inputs and outputs
-	row = N;
-	col = K[0]+1;
-  data = realloc(data, row*sizeof(long double *));
-	for (i=0; i<row; i++){
-		data[i] = (long double *)malloc(col*sizeof(long double));
-	}
-	read_csv(row, col, "mnist_test.csv", data);
-  for(i=0; i<N; i++) {
-    for(j=0; j<K[0]; j++) {
-      x[i][j] = data[i][j+1];
-    }
-  }
-  FILE* fp = fopen("predictions.csv", "w");
+	FILE* fp = fopen("predictions", "w");
   // calculate predictions on test set
-  for(i=0; i<N; i++) {
+  for(i=0; i<N_test; i++) {
     for(k=0; k<K[0]; k++) {
-      a[0][k] = x[i][k];
+      a[0][k] = x_test[i][k];
     }
     for(l=1; l<L-1; l++) {
       for(k=0; k<K[l]; k++) {
@@ -278,4 +280,5 @@ int main() {
     }
     fprintf(fp, "\n");
   }
+	fclose(fp);
 }
