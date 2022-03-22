@@ -67,7 +67,7 @@ int main() {
   int i, j, k, l, e;
   const int L = 6; // # of layers
   const int K[L] = {784, 256, 128, 64, 32, 10}; // # of neurons per layer
-	// tensors declaration
+	// tensors allocation
   long double ** z = (long double **)malloc(L*sizeof(long double**));
   for (l=1; l<L; l++) {
     z[l] = (long double *) malloc(K[l]*sizeof(long double));
